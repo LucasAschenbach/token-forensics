@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,14 +8,33 @@ version = "0.1.0"
 description = "Explain Codex token usage one inference and tool loop at a time"
 requires-python = ">=3.10"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Lucas Aschenbach" }]
+keywords = ["codex", "tokens", "rate-limits", "terminal", "observability"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console :: Curses",
+  "Intended Audience :: Developers",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Software Development :: Debuggers",
+  "Topic :: System :: Logging",
+]
+
+[project.urls]
+Homepage = "https://github.com/LucasAschenbach/token-forensics"
+Repository = "https://github.com/LucasAschenbach/token-forensics.git"
+Issues = "https://github.com/LucasAschenbach/token-forensics/issues"
 
 [project.scripts]
 token-forensics = "token_forensics.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]

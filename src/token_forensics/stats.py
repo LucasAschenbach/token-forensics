@@ -5,7 +5,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from .cli import classify_tool, human_bytes, human_int, iter_rollouts, read_events
+from .cli import classify_tool, human_int, iter_rollouts, read_events
 
 
 def cumulative_statistics(home: Path) -> dict[str, Any]:

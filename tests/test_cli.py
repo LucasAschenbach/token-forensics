@@ -54,6 +54,13 @@ class CliTests(unittest.TestCase):
             self.assertEqual(main([]), 0)
         self.assertIn("SESSION", output.getvalue())
 
+    def test_version_flag(self) -> None:
+        output = StringIO()
+        with self.assertRaises(SystemExit) as raised, redirect_stdout(output):
+            main(["--version"])
+        self.assertEqual(raised.exception.code, 0)
+        self.assertEqual(output.getvalue().strip(), "token-forensics 0.1.0")
+
     def test_timeline_header_uses_data_column_widths(self) -> None:
         header = timeline_header()
         self.assertEqual(header.index("#"), 16)

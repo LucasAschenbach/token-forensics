@@ -1,74 +1,181 @@
 # token-forensics
 
-`token-forensics` explains Codex usage one model inference and tool loop at a time. It reads local rollout JSONL files under `~/.codex` without modifying them or accessing `auth.json`.
+[![CI](https://github.com/LucasAschenbach/token-forensics/actions/workflows/ci.yml/badge.svg)](https://github.com/LucasAschenbach/token-forensics/actions/workflows/ci.yml)
 
-## Run
+Inspect where Codex token usage comes from, one model inference and tool loop at a time.
 
-No installation is required:
+`token-forensics` is a local, read-only terminal application for the rollout data stored in `~/.codex`. It reconstructs session timelines, connects tool results to the model requests that consumed them, correlates account-wide rate-limit snapshots across local sessions, and summarizes usage by model, session, tool, and subagent.
+
+> [!IMPORTANT]
+> This is an independent analysis tool, not an official OpenAI product. Codex's local storage format is not a stable public API and may change between releases.
+
+## Install
+
+Install from GitHub with [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv tool install git+https://github.com/LucasAschenbach/token-forensics.git
+```
+
+Or install a local checkout for development:
+
+```bash
+git clone https://github.com/LucasAschenbach/token-forensics.git
+cd token-forensics
+uv tool install --editable .
+```
+
+Python 3.10 or newer is required. The interactive UI targets macOS and Linux terminals.
+
+## Use
+
+Open the interactive session browser:
 
 ```bash
 token-forensics
 ```
 
-The bare command opens an interactive terminal browser. Use the arrow keys or `j`/`k` to select a session, `/` to filter, Enter to open its analysis, and `s` to open cumulative statistics. The statistics page includes per-model usage, largest sessions, requested tools, and parent/child subagent sessions. In the analysis view, select an inference block and press Enter or Space to expand exact counters, rate-limit changes, output composition, tool call IDs, timing, result sizes, and causal predecessor tools. Use `u`/`d` for half-page jumps, Page Up/Down for full pages, Escape to return, and `q` to quit.
+Home screen controls:
 
-For non-interactive scripts, use the explicit list command:
+| Key | Action |
+| --- | --- |
+| `↑` / `↓`, `j` / `k` | Select a session |
+| `Enter` | Analyze the selected session |
+| `/` | Filter sessions |
+| `s` | Open cumulative statistics |
+| `r` | Refresh |
+| `q` | Quit |
+
+Analysis controls:
+
+| Key | Action |
+| --- | --- |
+| `Enter` / `Space` | Expand or collapse an inference block |
+| `u` / `d` | Move half a page |
+| `Page Up` / `Page Down` | Move a full page |
+| `g` / `G` | Jump to the top or bottom |
+| `Esc` | Return |
+
+The expanded view includes exact token counters, cache reuse, context utilization, rate-limit snapshots, normalized tool names, arguments, commands, working directories, result sizes, and causal predecessor tools.
+
+## Commands
 
 ```bash
-token-forensics analyze 019eeb12
+# List recent sessions
+token-forensics list
+token-forensics list my-project --limit 10
+
+# Analyze by unique session-ID fragment or rollout path
+token-forensics analyze 019f4d78
+token-forensics analyze ~/.codex/sessions/2026/07/10/rollout-....jsonl
+
+# Show cumulative model, session, tool, and subagent statistics
 token-forensics stats
+
+# Emit structured data
+token-forensics analyze 019f4d78 --json
+token-forensics stats --json
+
+# Print the installed version
+token-forensics --version
+
+# Preserve color through a pager
+token-forensics --color always analyze 019f4d78 | less -R
 ```
 
-No installation is required when running through the source tree:
+Set `CODEX_HOME` or pass `--codex-home` when Codex state lives somewhere other than `~/.codex`:
 
 ```bash
-PYTHONPATH=src python3 -m token_forensics list
-PYTHONPATH=src python3 -m token_forensics analyze 019eeb12
+token-forensics --codex-home /path/to/codex-state stats
 ```
 
-Or install it in an isolated environment:
+## What It Shows
+
+Each inference row reports the usage in Codex's `last_token_usage` event:
+
+- input and cached-input tokens;
+- derived uncached input;
+- output and reasoning-output tokens;
+- context-window utilization; and
+- primary and secondary rate-limit snapshots.
+
+Tool rows preserve causality:
+
+```text
+model inference
+  └─ next tool → xcodebuildmcp.snapshot_ui  result 4.1KiB
+
+next model inference
+  ↳ input from ← xcodebuildmcp.snapshot_ui result 4.1KiB
+```
+
+The tool execution itself does not receive a fictional token charge. Tool arguments are model output from the requesting inference; the tool result contributes to the following inference's input.
+
+Code-mode wrappers are normalized into useful labels such as:
+
+- `shell.exec`
+- `tool_catalog.search`
+- `tool_schema.inspect`
+- `xcodebuildmcp.build_run_sim`
+- `xcodebuildmcp.snapshot_ui`
+- `agent.spawn`
+
+The cumulative statistics page reports:
+
+- per-model sessions, inference counts, average input, cache rate, and token totals;
+- sessions with the most submitted input;
+- normalized tool-call counts; and
+- parent/child subagent sessions and child usage.
+
+## Signals And Attribution
+
+Color is reserved for actionable signals:
+
+- unusually high uncached input;
+- large tool results;
+- heavy reasoning output;
+- tool failures;
+- cold-cache requests; and
+- observed rate-limit changes.
+
+Context utilization remains visible but is not treated as an anomaly by itself.
+
+Rate-limit percentages are account-wide snapshots, not per-request charges. When snapshots in one session are separated by more than five minutes, the analyzer scans other local rollouts and lists concurrent sessions, inference counts, and submitted input. A percentage change with insufficient local evidence is marked as uncertain rather than assigned to a single request.
+
+Tool-category totals describe inference usage associated with requests for that tool. Categories may overlap when one inference requests several tools and therefore do not necessarily sum to the session total.
+
+## Privacy
+
+All analysis runs locally. The tool:
+
+- reads rollout JSONL and selected Codex SQLite state;
+- does not read `auth.json`;
+- does not modify `~/.codex`;
+- makes no network requests; and
+- does not send telemetry.
+
+Rollouts may contain prompts, commands, file paths, and tool results. Treat JSON exports as sensitive and review them before sharing.
+
+## Development
+
+Run directly from a checkout:
 
 ```bash
-python3 -m pip install -e .
-token-forensics list mars-weather
-token-forensics analyze 019eeb12
+PYTHONPATH=src python3 -m token_forensics
 ```
 
-An explicit rollout path also works:
-
-```bash
-token-forensics analyze ~/.codex/sessions/2026/06/21/rollout-...jsonl
-```
-
-Use `--color always` when piping into a color-aware pager, or `--json` to consume the normalized analysis programmatically:
-
-```bash
-token-forensics --color always analyze 019eeb12 | less -R
-token-forensics analyze 019eeb12 --json > analysis.json
-```
-
-## Reading the report
-
-Each colored inference row has exact API usage from `last_token_usage`. Child `next tool →` rows identify tools requested by that inference and the size of the result they later returned. The following inference's `input from ←` row identifies which completed tool results entered that model request, including their result sizes. Repeated names such as `exec` on both rows represent a tool loop, not duplicate events.
-
-Tool execution does not have its own model-token charge. Its arguments consume output tokens in the inference that requested it, and its result contributes to the input context of the following inference. The report keeps those relationships separate rather than assigning fictional per-tool token counts.
-
-Warnings highlight:
-
-- uncached input above 4k or 16k tokens;
-- reasoning output above 1.5k or 4k tokens;
-- tool results above 25 KiB or 100 KiB;
-- failed tools; and
-- observed primary or secondary rate-limit jumps of at least two percentage points.
-
-Rate-limit percentages are account-wide snapshots, not per-request charges. A delta observed more than five minutes after the previous local snapshot is marked with `?` and described as non-attributable. Low cache reuse on the first request after such a gap is flagged as `cold cache after idle`.
-
-The `BY REQUESTED TOOL` table sums exact inference usage for inferences that requested each tool. Code-mode wrappers are unwrapped into operations such as `shell.exec`, `tool_catalog.search`, `tool_schema.inspect`, and `xcodebuildmcp.build_run_sim`. When one inference requests several tool categories, its usage appears in each category, so those rows intentionally do not sum to the session total.
-
-For rate changes separated by a long local gap, the analyzer scans other local rollouts and reports concurrent inference counts and submitted input tokens. This distinguishes an apparently idle thread from account usage generated by another local session.
-
-## Test
+Run the test suite:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
+
+Build distributions:
+
+```bash
+uv build
+```
+
+## License
+
+MIT. See [LICENSE](LICENSE).

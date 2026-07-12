@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable
 
+from . import __version__
+
 
 RESET = "\x1b[0m"
 COLORS = {
@@ -680,6 +682,7 @@ def command_stats(args: argparse.Namespace) -> int:
 
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="token-forensics", description="Analyze Codex token usage by inference and tool loop.")
+    root.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     root.add_argument("--codex-home", type=Path, default=codex_home(), help="Codex state directory (default: %(default)s)")
     root.add_argument("--color", choices=("auto", "always", "never"), default="auto", help="terminal color policy")
     subparsers = root.add_subparsers(dest="command", required=True)
